@@ -5,6 +5,7 @@ import { createCourse, createLesson, patchLessonVideo } from '../services/course
 import { createQuiz } from '../services/quizService'
 import VideoUploader from '../components/VideoUploader'
 import { useAuth } from '../context/AuthContext'
+import { getViewUrl } from '../services/uploadService'
 import toast from 'react-hot-toast'
 
 function CourseCreate() {
@@ -13,6 +14,7 @@ function CourseCreate() {
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [createdCourseId, setCreatedCourseId] = useState(null)
+  const [thumbnailUrl, setThumbnailUrl] = useState(null)
 
   // Step 1 state
   const [courseData, setCourseData] = useState({ title: '', description: '', thumbnail_s3_key: '' })
@@ -48,6 +50,25 @@ function CourseCreate() {
     setNewLesson({ title: '', video_s3_key: '', quiz: null })
     setAddingLesson(false)
     toast.success('Lesson added')
+  }
+
+  const handleStep2Next = () => {
+    if (addingLesson) {
+      if (newLesson.title.trim()) {
+        setLessons(prev => [...prev, { ...newLesson, order_index: prev.length + 1 }])
+        setNewLesson({ title: '', video_s3_key: '', quiz: null })
+        setAddingLesson(false)
+        toast.success('Lesson auto-saved and added!')
+        setStep(3)
+      } else if (newLesson.video_s3_key) {
+        toast.error('Please enter a lesson title for the uploaded video')
+      } else {
+        setAddingLesson(false)
+        setStep(3)
+      }
+    } else {
+      setStep(3)
+    }
   }
 
   const removeLesson = (idx) => {
@@ -207,7 +228,15 @@ function CourseCreate() {
                 acceptTypes="image/*"
                 label="Upload Thumbnail Image"
                 hint="PNG, JPG, WEBP — Recommended 1280×720"
-                onUploadComplete={(key) => setCourseData(p => ({ ...p, thumbnail_s3_key: key }))}
+                onUploadComplete={async (key) => {
+                  setCourseData(p => ({ ...p, thumbnail_s3_key: key }))
+                  try {
+                    const res = await getViewUrl(key)
+                    setThumbnailUrl(res.data?.view_url || res.data?.url || null)
+                  } catch {
+                    setThumbnailUrl(null)
+                  }
+                }}
               />
               {courseData.thumbnail_s3_key && (
                 <p style={{ color: '#10b981', fontSize: '12px', marginTop: '6px' }}>✓ Thumbnail uploaded</p>
@@ -414,7 +443,7 @@ function CourseCreate() {
               <button className="btn-ghost" onClick={() => setStep(1)}>
                 <ChevronLeft size={16} /> Back
               </button>
-              <button className="btn-primary" onClick={() => setStep(3)}>
+              <button className="btn-primary" onClick={handleStep2Next}>
                 Review <ChevronRight size={16} />
               </button>
             </div>
@@ -434,12 +463,12 @@ function CourseCreate() {
                 <div style={{
                   width: '160px', height: '100px', flexShrink: 0,
                   borderRadius: '10px',
-                  background: courseData.thumbnail_s3_key
-                    ? 'rgba(59,130,246,0.1)'
+                  background: thumbnailUrl
+                    ? `url("${thumbnailUrl}") center/cover`
                     : 'linear-gradient(135deg, #3b82f6, #6366f1)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <BookOpen size={32} color="white" />
+                  {!thumbnailUrl && <BookOpen size={32} color="white" />}
                 </div>
                 <div style={{ flex: 1 }}>
                   <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#f1f5f9', marginBottom: '8px' }}>

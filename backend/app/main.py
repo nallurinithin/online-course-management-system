@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import engine, Base
 from app.core.config import settings
-from app.api.routes import auth, admin, users, courses, lessons, uploads, enrollments, progress, quizzes
+from app.api.routes import auth, admin, users, courses, lessons, uploads, enrollments, progress, quizzes, mock_s3
 
 
 @asynccontextmanager
@@ -54,6 +54,7 @@ app.include_router(uploads.router, prefix="/api/uploads")
 app.include_router(enrollments.router, prefix="/api/enrollments")
 app.include_router(progress.router, prefix="/api/progress")
 app.include_router(quizzes.router, prefix="/api/quizzes")
+app.include_router(mock_s3.router)
 
 
 @app.get("/api/health")

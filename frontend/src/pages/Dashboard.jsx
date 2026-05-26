@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   BookOpen, Users, Plus, Edit2, Trash2, TrendingUp,
   Award, GraduationCap, PlayCircle, CheckCircle, BarChart2
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import {
-  getCourses, deleteCourse, getMyEnrollments, getProgressPercentage
+  getCourses, deleteCourse, getMyEnrollments, getProgressPercentage, enroll
 } from '../services/courseService'
 import CourseCard from '../components/CourseCard'
 import ProgressBar from '../components/ProgressBar'
@@ -21,6 +21,16 @@ function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [activeTab, setActiveTab] = useState('my-courses')
+  const location = useLocation()
+  const queryParams = new URLSearchParams(location.search)
+  const tabParam = queryParams.get('tab')
+
+  useEffect(() => {
+    if (tabParam === 'browse' || tabParam === 'my-courses') {
+      setActiveTab(tabParam)
+    }
+  }, [tabParam])
 
   const isInstructor = user?.role === 'instructor'
   const isStudent = user?.role === 'student'
@@ -34,9 +44,14 @@ function Dashboard() {
         const mine = all.filter(c => c.instructor_id === user.id || c.instructor_name === user.name)
         setCourses(mine.length > 0 ? mine : all)
       } else if (isStudent) {
-        const res = await getMyEnrollments()
-        const enrolled = res.data || []
+        const [enrollmentsRes, coursesRes] = await Promise.all([
+          getMyEnrollments(),
+          getCourses()
+        ])
+        const enrolled = enrollmentsRes.data || []
+        const allCourses = coursesRes.data || []
         setEnrollments(enrolled)
+        setCourses(allCourses)
 
         // Fetch progress for each enrolled course
         const progMap = {}
@@ -58,6 +73,31 @@ function Dashboard() {
       setLoading(false)
     }
   }, [user, isInstructor, isStudent])
+
+  const handleEnroll = async (courseId) => {
+    try {
+      await enroll(courseId)
+      toast.success('Enrolled successfully! 🎉')
+      
+      // Refresh enrollments & all courses to update enrollment stats
+      const [enrollmentsRes, coursesRes] = await Promise.all([
+        getMyEnrollments(),
+        getCourses()
+      ])
+      setEnrollments(enrollmentsRes.data || [])
+      setCourses(coursesRes.data || [])
+
+      // Fetch progress for this new enrollment
+      try {
+        const pr = await getProgressPercentage(courseId)
+        setProgressMap(prev => ({ ...prev, [courseId]: pr.data?.percentage || 0 }))
+      } catch {
+        setProgressMap(prev => ({ ...prev, [courseId]: 0 }))
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Enrollment failed')
+    }
+  }
 
   useEffect(() => {
     if (user) fetchData()
@@ -188,77 +228,155 @@ function Dashboard() {
             )}
           </>
         ) : (
-          /* Student: Enrolled Courses */
+          /* Student: Enrolled & Browse Courses Tabs */
           <>
-            {/* Continue Learning */}
-            {enrollments.length > 0 && (
-              <div style={{ marginBottom: '40px' }}>
-                <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#f1f5f9', marginBottom: '16px' }}>
-                  Continue Learning
-                </h2>
-                <div className="glass-card" style={{ padding: '24px' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '20px', flexWrap: 'wrap' }}>
-                    <div style={{
-                      width: '80px', height: '80px', flexShrink: 0,
-                      borderRadius: '12px',
-                      background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <BookOpen size={32} color="white" />
-                    </div>
-                    <div style={{ flex: 1, minWidth: '200px' }}>
-                      <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#f1f5f9', marginBottom: '4px' }}>
-                        {enrollments[0]?.course_title || enrollments[0]?.title || 'Your Course'}
-                      </h3>
-                      <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '16px' }}>
-                        {enrollments[0]?.instructor_name && `By ${enrollments[0].instructor_name}`}
-                      </p>
-                      <ProgressBar
-                        percentage={progressMap[enrollments[0]?.course_id || enrollments[0]?.id] || 0}
-                      />
-                    </div>
-                    <button
-                      className="btn-primary"
-                      onClick={() => navigate(`/courses/${enrollments[0]?.course_id || enrollments[0]?.id}`)}
-                    >
-                      <PlayCircle size={16} /> Continue
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* All Enrolled Courses */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#f1f5f9' }}>My Courses</h2>
+            {/* Tab Navigation */}
+            <div style={{
+              display: 'flex', gap: '24px', marginBottom: '28px',
+              borderBottom: '1px solid rgba(255,255,255,0.08)',
+              paddingBottom: '12px'
+            }}>
+              <button
+                onClick={() => setActiveTab('my-courses')}
+                style={{
+                  background: 'none', border: 'none',
+                  color: activeTab === 'my-courses' ? '#3b82f6' : '#94a3b8',
+                  fontWeight: activeTab === 'my-courses' ? 700 : 500,
+                  fontSize: '16px', cursor: 'pointer',
+                  position: 'relative', padding: '4px 8px',
+                  fontFamily: 'Inter, sans-serif',
+                  transition: 'all 0.2s',
+                }}
+              >
+                My Courses
+                {activeTab === 'my-courses' && (
+                  <div style={{ position: 'absolute', bottom: '-13px', left: 0, right: 0, height: '2px', background: '#3b82f6' }} />
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('browse')}
+                style={{
+                  background: 'none', border: 'none',
+                  color: activeTab === 'browse' ? '#3b82f6' : '#94a3b8',
+                  fontWeight: activeTab === 'browse' ? 700 : 500,
+                  fontSize: '16px', cursor: 'pointer',
+                  position: 'relative', padding: '4px 8px',
+                  fontFamily: 'Inter, sans-serif',
+                  transition: 'all 0.2s',
+                }}
+              >
+                Browse Courses
+                {activeTab === 'browse' && (
+                  <div style={{ position: 'absolute', bottom: '-13px', left: 0, right: 0, height: '2px', background: '#3b82f6' }} />
+                )}
+              </button>
             </div>
 
-            {enrollments.length === 0 ? (
-              <EmptyState
-                icon={<GraduationCap size={48} style={{ opacity: 0.3 }} />}
-                title="No courses enrolled"
-                description="Browse our course catalog and start learning today!"
-                action={<button className="btn-primary" onClick={() => navigate('/')}><BookOpen size={16} /> Browse Courses</button>}
-              />
+            {activeTab === 'my-courses' ? (
+              <>
+                {/* Continue Learning */}
+                {enrollments.length > 0 && (
+                  <div style={{ marginBottom: '40px' }}>
+                    <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#f1f5f9', marginBottom: '16px' }}>
+                      Continue Learning
+                    </h2>
+                    <div className="glass-card" style={{ padding: '24px' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '20px', flexWrap: 'wrap' }}>
+                        <div style={{
+                          width: '80px', height: '80px', flexShrink: 0,
+                          borderRadius: '12px',
+                          background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <BookOpen size={32} color="white" />
+                        </div>
+                        <div style={{ flex: 1, minWidth: '200px' }}>
+                          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#f1f5f9', marginBottom: '4px' }}>
+                            {enrollments[0]?.course_title || enrollments[0]?.title || 'Your Course'}
+                          </h3>
+                          <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '16px' }}>
+                            {enrollments[0]?.instructor_name && `By ${enrollments[0].instructor_name}`}
+                          </p>
+                          <ProgressBar
+                            percentage={progressMap[enrollments[0]?.course_id || enrollments[0]?.id] || 0}
+                          />
+                        </div>
+                        <button
+                          className="btn-primary"
+                          onClick={() => navigate(`/courses/${enrollments[0]?.course_id || enrollments[0]?.id}`)}
+                        >
+                          <PlayCircle size={16} /> Continue
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* All Enrolled Courses */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                  <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#f1f5f9' }}>My Enrolled Courses ({enrollments.length})</h2>
+                </div>
+
+                {enrollments.length === 0 ? (
+                  <EmptyState
+                    icon={<GraduationCap size={48} style={{ opacity: 0.3 }} />}
+                    title="No courses enrolled"
+                    description="Browse our course catalog and start learning today!"
+                    action={<button className="btn-primary" onClick={() => setActiveTab('browse')}><BookOpen size={16} /> Browse Courses</button>}
+                  />
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
+                    {enrollments.map(enrollment => {
+                      const courseId = enrollment.course_id || enrollment.id
+                      const pct = progressMap[courseId] || 0
+                      return (
+                        <CourseCard
+                          key={courseId}
+                          course={{
+                            ...enrollment,
+                            id: courseId,
+                            title: enrollment.course_title || enrollment.title,
+                          }}
+                          isEnrolled
+                          progressPercent={pct}
+                        />
+                      )
+                    })}
+                  </div>
+                )}
+              </>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
-                {enrollments.map(enrollment => {
-                  const courseId = enrollment.course_id || enrollment.id
-                  const pct = progressMap[courseId] || 0
-                  return (
-                    <CourseCard
-                      key={courseId}
-                      course={{
-                        ...enrollment,
-                        id: courseId,
-                        title: enrollment.course_title || enrollment.title,
-                      }}
-                      isEnrolled
-                      progressPercent={pct}
-                    />
-                  )
-                })}
-              </div>
+              /* Browse Courses Tab */
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                  <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#f1f5f9' }}>Explore Available Courses</h2>
+                  <span style={{ color: '#64748b', fontSize: '13px' }}>{courses.length} course{courses.length !== 1 ? 's' : ''} available</span>
+                </div>
+
+                {courses.length === 0 ? (
+                  <EmptyState
+                    icon={<BookOpen size={48} style={{ opacity: 0.3 }} />}
+                    title="No courses available"
+                    description="Instructors haven't uploaded any courses yet. Please check back later!"
+                  />
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
+                    {courses.map(course => {
+                      const isEnrolled = enrollments.some(e => (e.course_id || e.id) === course.id)
+                      const pct = progressMap[course.id]
+                      return (
+                        <CourseCard
+                          key={course.id}
+                          course={course}
+                          isEnrolled={isEnrolled}
+                          progressPercent={pct}
+                          onEnroll={isEnrolled ? null : handleEnroll}
+                        />
+                      )
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

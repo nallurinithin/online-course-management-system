@@ -7,6 +7,7 @@ from app.schemas.user_schema import UserOut
 class CourseCreate(BaseModel):
     title: str
     description: str
+    thumbnail_s3_key: Optional[str] = None
 
 
 class CourseOut(BaseModel):
@@ -17,6 +18,10 @@ class CourseOut(BaseModel):
     instructor_id: int
     created_at: datetime
     instructor: UserOut
+    thumbnail_url: Optional[str] = None
+    instructor_name: Optional[str] = None
+    enrolled_count: int = 0
+    lesson_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -57,6 +62,7 @@ class EnrollmentOut(BaseModel):
     id: int
     student_id: int
     course_id: int
+    is_completed: bool = False
     enrolled_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

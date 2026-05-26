@@ -56,7 +56,7 @@ function CourseCard({ course, isEnrolled, progressPercent, onEnroll, showActions
       {/* Thumbnail */}
       <div style={{
         height: '160px',
-        background: course.thumbnail_url ? `url(${course.thumbnail_url}) center/cover` : thumbnailBg,
+        background: course.thumbnail_url ? `url("${course.thumbnail_url}") center/cover` : thumbnailBg,
         position: 'relative',
         display: 'flex',
         alignItems: 'center',

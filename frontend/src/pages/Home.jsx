@@ -16,7 +16,7 @@ function Home() {
     if (isAuthenticated) {
       if (user?.role === 'admin') {
         navigate('/admin/dashboard', { replace: true })
-      } else if (user?.role === 'instructor' || user?.role === 'student') {
+      } else {
         navigate('/dashboard', { replace: true })
       }
     }

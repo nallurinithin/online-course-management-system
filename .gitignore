@@ -49,3 +49,6 @@ htmlcov/
 # Logs
 *.log
 logs/
+
+# Mock S3 Storage
+backend/mock_s3_storage/

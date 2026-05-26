@@ -96,7 +96,7 @@ function CourseView() {
     if (lesson.video_s3_key) {
       try {
         const urlRes = await getViewUrl(lesson.video_s3_key)
-        setVideoUrl(urlRes.data?.url || null)
+        setVideoUrl(urlRes.data?.view_url || urlRes.data?.url || null)
       } catch {
         setVideoUrl(null)
       }

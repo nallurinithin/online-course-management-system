@@ -11,6 +11,7 @@ def create_course(db: Session, data: CourseCreate, instructor_id: int) -> Course
     course = Course(
         title=data.title,
         description=data.description,
+        thumbnail_s3_key=data.thumbnail_s3_key,
         instructor_id=instructor_id,
     )
     db.add(course)
@@ -48,6 +49,7 @@ def get_course_by_id(db: Session, course_id: int) -> Course | None:
 def update_course(db: Session, course: Course, data: CourseCreate) -> Course:
     course.title = data.title
     course.description = data.description
+    course.thumbnail_s3_key = data.thumbnail_s3_key
     db.commit()
     db.refresh(course)
     course = (

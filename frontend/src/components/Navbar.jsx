@@ -81,7 +81,10 @@ function Navbar() {
               <NavLink to="/courses" label="Courses" active={location.pathname.startsWith('/courses') && !location.pathname.includes('/create') && !location.pathname.includes('/edit')} />
             )}
             {isAuthenticated && user?.role !== 'admin' && (
-              <NavLink to="/dashboard" label="Dashboard" active={isActive('/dashboard')} />
+              <NavLink to="/dashboard" label="Dashboard" active={isActive('/dashboard') && !location.search.includes('tab=browse')} />
+            )}
+            {isAuthenticated && user?.role === 'student' && (
+              <NavLink to="/dashboard?tab=browse" label="Browse Courses" active={location.search.includes('tab=browse')} />
             )}
             {user?.role === 'admin' && (
               <NavLink to="/admin/dashboard" label="Admin Panel" active={isActive('/admin/dashboard')} icon={<ShieldCheck size={14} />} />
@@ -204,6 +207,9 @@ function Navbar() {
           )}
           {isAuthenticated && user?.role !== 'admin' && (
             <MobileNavLink to="/dashboard" label="Dashboard" onClick={() => setMobileOpen(false)} />
+          )}
+          {isAuthenticated && user?.role === 'student' && (
+            <MobileNavLink to="/dashboard?tab=browse" label="Browse Courses" onClick={() => setMobileOpen(false)} />
           )}
           {user?.role === 'admin' && (
             <MobileNavLink to="/admin/dashboard" label="Admin Panel" onClick={() => setMobileOpen(false)} />

@@ -59,9 +59,9 @@ function VideoUploader({ onUploadComplete, courseId, lessonId, acceptTypes = 'vi
     try {
       const s3Prefix = courseId ? `courses/${courseId}/lessons` : 'uploads'
       const { data } = await getPresignedUrl(file.name, file.type, s3Prefix)
-      const { presigned_url, s3_key } = data
+      const { upload_url, s3_key } = data
 
-      await uploadToS3WithProgress(presigned_url, file, (pct) => {
+      await uploadToS3WithProgress(upload_url, file, (pct) => {
         setProgress(pct)
       })
 

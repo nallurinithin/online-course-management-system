@@ -1,3 +1,4 @@
+import urllib.parse
 import boto3
 from botocore.exceptions import ClientError
 from app.core.config import settings
@@ -5,7 +6,8 @@ from app.core.config import settings
 
 def get_presigned_upload_url(s3_key: str, content_type: str) -> str:
     if not settings.AWS_ACCESS_KEY_ID or not settings.AWS_SECRET_ACCESS_KEY:
-        return f"http://localhost:8000/mock-s3/{s3_key}"
+        safe_key = urllib.parse.quote(s3_key)
+        return f"http://localhost:8000/mock-s3/{safe_key}"
 
     s3_client = boto3.client(
         "s3",
@@ -30,7 +32,8 @@ def get_presigned_upload_url(s3_key: str, content_type: str) -> str:
 
 def get_presigned_view_url(s3_key: str) -> str:
     if not settings.AWS_ACCESS_KEY_ID or not settings.AWS_SECRET_ACCESS_KEY:
-        return f"http://localhost:8000/mock-s3/{s3_key}"
+        safe_key = urllib.parse.quote(s3_key)
+        return f"http://localhost:8000/mock-s3/{safe_key}"
 
     s3_client = boto3.client(
         "s3",

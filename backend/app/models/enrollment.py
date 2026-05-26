@@ -11,6 +11,7 @@ class Enrollment(Base):
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
+    is_completed = Column(Boolean, default=False)
     enrolled_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     student = relationship("User", back_populates="enrollments")
