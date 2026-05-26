@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import {
-  getCourses, deleteCourse, getMyEnrollments, getProgressPercentage, enroll
+  getCourses, deleteCourse, getMyEnrollments, getProgressPercentage, enroll, unenroll, completeEnrollment
 } from '../services/courseService'
 import CourseCard from '../components/CourseCard'
 import ProgressBar from '../components/ProgressBar'
@@ -27,7 +27,7 @@ function Dashboard() {
   const tabParam = queryParams.get('tab')
 
   useEffect(() => {
-    if (tabParam === 'browse' || tabParam === 'my-courses') {
+    if (tabParam === 'browse' || tabParam === 'my-courses' || tabParam === 'completed') {
       setActiveTab(tabParam)
     }
   }, [tabParam])
@@ -99,6 +99,28 @@ function Dashboard() {
     }
   }
 
+  const handleStudentDelete = async (course) => {
+    if (!course.is_completed) {
+      try {
+        await completeEnrollment(course.id)
+        toast.success(`"${course.title}" moved to Completed Courses!`)
+        fetchData()
+      } catch (err) {
+        toast.error('Failed to mark course as completed')
+      }
+    } else {
+      if (window.confirm(`Are you sure you want to completely remove "${course.title}"? This will delete your progress.`)) {
+        try {
+          await unenroll(course.id)
+          toast.success(`Removed "${course.title}" from your courses`)
+          fetchData()
+        } catch (err) {
+          toast.error('Failed to remove course')
+        }
+      }
+    }
+  }
+
   useEffect(() => {
     if (user) fetchData()
   }, [user, fetchData])
@@ -120,10 +142,13 @@ function Dashboard() {
 
   const totalStudents = courses.reduce((sum, c) => sum + (c.enrolled_count || 0), 0)
   const totalLessons = courses.reduce((sum, c) => sum + (c.lesson_count || 0), 0)
-  const completedCourses = enrollments.filter(e => (progressMap[e.course_id || e.id] || 0) === 100).length
+  const completedCourses = enrollments.filter(e => e.is_completed || (progressMap[e.course_id || e.id] || 0) === 100).length
   const avgProgress = enrollments.length > 0
     ? Math.round(Object.values(progressMap).reduce((a, b) => a + b, 0) / enrollments.length)
     : 0
+
+  const activeEnrollments = enrollments.filter(e => !e.is_completed)
+  const completedEnrollments = enrollments.filter(e => e.is_completed)
 
   return (
     <div style={{ paddingTop: '64px', minHeight: '100vh' }}>
@@ -254,6 +279,23 @@ function Dashboard() {
                 )}
               </button>
               <button
+                onClick={() => setActiveTab('completed')}
+                style={{
+                  background: 'none', border: 'none',
+                  color: activeTab === 'completed' ? '#3b82f6' : '#94a3b8',
+                  fontWeight: activeTab === 'completed' ? 700 : 500,
+                  fontSize: '16px', cursor: 'pointer',
+                  position: 'relative', padding: '4px 8px',
+                  fontFamily: 'Inter, sans-serif',
+                  transition: 'all 0.2s',
+                }}
+              >
+                Completed Courses
+                {activeTab === 'completed' && (
+                  <div style={{ position: 'absolute', bottom: '-13px', left: 0, right: 0, height: '2px', background: '#3b82f6' }} />
+                )}
+              </button>
+              <button
                 onClick={() => setActiveTab('browse')}
                 style={{
                   background: 'none', border: 'none',
@@ -275,7 +317,7 @@ function Dashboard() {
             {activeTab === 'my-courses' ? (
               <>
                 {/* Continue Learning */}
-                {enrollments.length > 0 && (
+                {activeEnrollments.length > 0 && (
                   <div style={{ marginBottom: '40px' }}>
                     <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#f1f5f9', marginBottom: '16px' }}>
                       Continue Learning
@@ -292,18 +334,18 @@ function Dashboard() {
                         </div>
                         <div style={{ flex: 1, minWidth: '200px' }}>
                           <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#f1f5f9', marginBottom: '4px' }}>
-                            {enrollments[0]?.course_title || enrollments[0]?.title || 'Your Course'}
+                            {activeEnrollments[0]?.course_title || activeEnrollments[0]?.title || 'Your Course'}
                           </h3>
                           <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '16px' }}>
-                            {enrollments[0]?.instructor_name && `By ${enrollments[0].instructor_name}`}
+                            {activeEnrollments[0]?.instructor_name && `By ${activeEnrollments[0].instructor_name}`}
                           </p>
                           <ProgressBar
-                            percentage={progressMap[enrollments[0]?.course_id || enrollments[0]?.id] || 0}
+                            percentage={progressMap[activeEnrollments[0]?.course_id || activeEnrollments[0]?.id] || 0}
                           />
                         </div>
                         <button
                           className="btn-primary"
-                          onClick={() => navigate(`/courses/${enrollments[0]?.course_id || enrollments[0]?.id}`)}
+                          onClick={() => navigate(`/courses/${activeEnrollments[0]?.course_id || activeEnrollments[0]?.id}`)}
                         >
                           <PlayCircle size={16} /> Continue
                         </button>
@@ -314,10 +356,10 @@ function Dashboard() {
 
                 {/* All Enrolled Courses */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                  <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#f1f5f9' }}>My Enrolled Courses ({enrollments.length})</h2>
+                  <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#f1f5f9' }}>My Enrolled Courses ({activeEnrollments.length})</h2>
                 </div>
 
-                {enrollments.length === 0 ? (
+                {activeEnrollments.length === 0 ? (
                   <EmptyState
                     icon={<GraduationCap size={48} style={{ opacity: 0.3 }} />}
                     title="No courses enrolled"
@@ -326,7 +368,7 @@ function Dashboard() {
                   />
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
-                    {enrollments.map(enrollment => {
+                    {activeEnrollments.map(enrollment => {
                       const courseId = enrollment.course_id || enrollment.id
                       const pct = progressMap[courseId] || 0
                       return (
@@ -339,6 +381,41 @@ function Dashboard() {
                           }}
                           isEnrolled
                           progressPercent={pct}
+                          onDelete={handleStudentDelete}
+                        />
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            ) : activeTab === 'completed' ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                  <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#f1f5f9' }}>Completed Courses ({completedEnrollments.length})</h2>
+                </div>
+
+                {completedEnrollments.length === 0 ? (
+                  <EmptyState
+                    icon={<Award size={48} style={{ opacity: 0.3 }} />}
+                    title="No completed courses"
+                    description="When you complete or finish a course, it will appear here!"
+                  />
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
+                    {completedEnrollments.map(enrollment => {
+                      const courseId = enrollment.course_id || enrollment.id
+                      const pct = progressMap[courseId] || 0
+                      return (
+                        <CourseCard
+                          key={courseId}
+                          course={{
+                            ...enrollment,
+                            id: courseId,
+                            title: enrollment.course_title || enrollment.title,
+                          }}
+                          isEnrolled
+                          progressPercent={pct}
+                          onDelete={handleStudentDelete}
                         />
                       )
                     })}

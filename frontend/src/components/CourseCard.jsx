@@ -1,6 +1,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, BookOpen, Calendar, CheckCircle } from 'lucide-react'
+import { Users, BookOpen, Calendar, CheckCircle, Trash2 } from 'lucide-react'
 
 function CourseCard({ course, isEnrolled, progressPercent, onEnroll, showActions, onEdit, onDelete }) {
   const navigate = useNavigate()
@@ -81,6 +81,29 @@ function CourseCard({ course, isEnrolled, progressPercent, onEnroll, showActions
             <CheckCircle size={11} />
             Enrolled
           </div>
+        )}
+
+        {isEnrolled && onDelete && (
+          <button
+            className="card-actions"
+            onClick={(e) => { e.stopPropagation(); onDelete(course) }}
+            style={{
+              position: 'absolute', top: '12px', left: '12px',
+              width: '28px', height: '28px',
+              borderRadius: '50%',
+              background: 'rgba(239,68,68,0.9)',
+              border: '1px solid rgba(239,68,68,0.4)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'white', cursor: 'pointer',
+              transition: 'all 0.2s',
+              zIndex: 10,
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+            title="Remove course"
+          >
+            <Trash2 size={13} />
+          </button>
         )}
 
         {/* Progress bar overlay if enrolled */}

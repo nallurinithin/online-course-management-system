@@ -47,3 +47,9 @@ export const completeLesson = (lessonId) =>
 
 export const incompleteLesson = (lessonId) =>
   api.post(`/api/progress/lesson/${lessonId}/incomplete`)
+
+export const unenroll = (courseId) =>
+  api.delete(`/api/enrollments/${courseId}`)
+
+export const completeEnrollment = (courseId) =>
+  api.patch(`/api/enrollments/${courseId}/complete`)
